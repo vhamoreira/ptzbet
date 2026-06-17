@@ -362,7 +362,7 @@ function PointPill({ label, earned, value }) {
   );
 }
 
-function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveResult, otherPicks }) {
+function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveResult, otherPicks, knownPlayers, onAdminSavePick }) {
   const displayTeamA = (result && result.teamAName) || match.teamA;
   const displayTeamB = (result && result.teamBName) || match.teamB;
   const isKnockout = match.group === null;
@@ -382,6 +382,13 @@ function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveRes
   const [useOtherScorer, setUseOtherScorer] = useState(
     !!(pick && pick.scorer) && !squadOptions.includes(pick.scorer)
   );
+
+  const [pickAdminOpen, setPickAdminOpen] = useState(false);
+  const [adminPickName, setAdminPickName] = useState('');
+  const [useNewPlayerName, setUseNewPlayerName] = useState(false);
+  const [adminPickDraft, setAdminPickDraft] = useState({ outcome: '', scoreA: '', scoreB: '', scorer: '' });
+  const [adminScorerOther, setAdminScorerOther] = useState(false);
+
 
   useEffect(() => {
     setDraftPick(pick || { outcome: '', scoreA: '', scoreB: '', scorer: '' });
@@ -715,6 +722,148 @@ function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveRes
           )}
         </div>
       )}
+
+      {isAdmin && (
+        <div className="border-t border-slate-700 bg-slate-900/60">
+          <button
+            onClick={() => setPickAdminOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-teal-300"
+          >
+            Admin: inserir palpite de alguém
+            {pickAdminOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {pickAdminOpen && (
+            <div className="px-4 pb-3 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                {useNewPlayerName ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="nome do jogador"
+                    value={adminPickName}
+                    onChange={(e) => setAdminPickName(e.target.value)}
+                    className="flex-1 rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1.5 px-2 text-sm"
+                  />
+                ) : (
+                  <select
+                    value={adminPickName}
+                    onChange={(e) => {
+                      if (e.target.value === '__new__') {
+                        setUseNewPlayerName(true);
+                        setAdminPickName('');
+                      } else {
+                        setAdminPickName(e.target.value);
+                      }
+                    }}
+                    className="flex-1 rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1.5 px-2 text-sm"
+                  >
+                    <option value="">escolhe o jogador</option>
+                    {(knownPlayers || []).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                    <option value="__new__">+ Novo jogador</option>
+                  </select>
+                )}
+                {useNewPlayerName && (
+                  <button onClick={() => { setUseNewPlayerName(false); setAdminPickName(''); }} className="text-xs text-slate-400 underline shrink-0">
+                    lista
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {[
+                  ['A', displayTeamA],
+                  ['D', 'Empate'],
+                  ['B', displayTeamB],
+                ].map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setAdminPickDraft((d) => ({ ...d, outcome: val }))}
+                    className={`flex-1 rounded-lg px-2 py-2 text-xs font-bold truncate transition ${
+                      adminPickDraft.outcome === val ? 'bg-teal-500 text-slate-900' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 w-16 truncate">Resultado</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={adminPickDraft.scoreA}
+                  onChange={(e) => setAdminPickDraft((d) => ({ ...d, scoreA: e.target.value }))}
+                  className="w-12 text-center rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1"
+                />
+                <span className="text-slate-500">-</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={adminPickDraft.scoreB}
+                  onChange={(e) => setAdminPickDraft((d) => ({ ...d, scoreB: e.target.value }))}
+                  className="w-12 text-center rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 w-16 truncate">Marcador</span>
+                {adminScorerOther ? (
+                  <input
+                    type="text"
+                    placeholder="escreve o nome"
+                    value={adminPickDraft.scorer}
+                    onChange={(e) => setAdminPickDraft((d) => ({ ...d, scorer: e.target.value }))}
+                    className="flex-1 rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1 px-2 text-sm"
+                  />
+                ) : (
+                  <select
+                    value={squadOptions.includes(adminPickDraft.scorer) ? adminPickDraft.scorer : ''}
+                    onChange={(e) => {
+                      if (e.target.value === '__other__') {
+                        setAdminScorerOther(true);
+                        setAdminPickDraft((d) => ({ ...d, scorer: '' }));
+                      } else {
+                        setAdminPickDraft((d) => ({ ...d, scorer: e.target.value }));
+                      }
+                    }}
+                    className="flex-1 rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1.5 px-2 text-sm"
+                  >
+                    <option value="">escolhe quem marca</option>
+                    <optgroup label={displayTeamA}>
+                      {(SQUADS[displayTeamA] || []).map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={displayTeamB}>
+                      {(SQUADS[displayTeamB] || []).map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </optgroup>
+                    <option value="__other__">Outro (escrever nome)</option>
+                  </select>
+                )}
+                {adminScorerOther && (
+                  <button onClick={() => setAdminScorerOther(false)} className="text-xs text-slate-400 underline shrink-0">
+                    lista
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={async () => {
+                  if (!adminPickName.trim()) return;
+                  await onAdminSavePick(adminPickName.trim(), match.id, adminPickDraft);
+                  setAdminPickDraft({ outcome: '', scoreA: '', scoreB: '', scorer: '' });
+                  setAdminPickName('');
+                  setUseNewPlayerName(false);
+                }}
+                className="rounded-lg bg-teal-500 text-slate-900 font-bold text-xs px-3 py-1.5 self-end"
+              >
+                Guardar palpite
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -921,6 +1070,12 @@ export default function App() {
     return map;
   }, [allPicks]);
 
+  const knownPlayers = useMemo(() => {
+    const names = new Set(allPicks.map((p) => p.name));
+    if (myName) names.add(myName);
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [allPicks, myName]);
+
   const liveMatches = useMemo(() => {
     return allMatches.filter((m) => {
       const r = results[m.id];
@@ -1006,6 +1161,28 @@ export default function App() {
       showToast('Resultado guardado');
     } catch (e) {
       showToast('Erro ao guardar resultado');
+    }
+  }
+
+  async function adminSavePick(playerName, matchId, pickPartial) {
+    const trimmed = playerName.trim();
+    if (!trimmed) return;
+    try {
+      let current = { name: trimmed, matches: {} };
+      try {
+        const existing = await storage.get(`picks_${slug(trimmed)}`, true);
+        if (existing && existing.value) current = JSON.parse(existing.value);
+      } catch (e) {}
+      const nextMatches = { ...current.matches, [matchId]: { ...(current.matches[matchId] || {}), ...pickPartial } };
+      await storage.set(`picks_${slug(trimmed)}`, JSON.stringify({ name: trimmed, matches: nextMatches }), true);
+      setAllPicks((prev) => {
+        const others = prev.filter((p) => p.name !== trimmed);
+        return [...others, { name: trimmed, matches: nextMatches }];
+      });
+      if (trimmed === myName) setMyPicks(nextMatches);
+      showToast(`Palpite de ${trimmed} guardado`);
+    } catch (e) {
+      showToast('Erro ao guardar palpite');
     }
   }
 
@@ -1162,6 +1339,8 @@ export default function App() {
                     onSavePick={savePick}
                     onSaveResult={saveResult}
                     otherPicks={picksByMatch[m.id] || []}
+                    knownPlayers={knownPlayers}
+                    onAdminSavePick={adminSavePick}
                   />
                 ))}
               </div>
@@ -1194,6 +1373,8 @@ export default function App() {
                     onSavePick={savePick}
                     onSaveResult={saveResult}
                     otherPicks={picksByMatch[m.id] || []}
+                    knownPlayers={knownPlayers}
+                    onAdminSavePick={adminSavePick}
                   />
                 ))}
               </div>
