@@ -362,6 +362,33 @@ function PointPill({ label, earned, value }) {
   );
 }
 
+// Uma "linha de aposta": título + valor em pontos à direita, no estilo bilhete
+// de aposta (ex: "Achraf Hakimi: 2+ Desarmes"), com o estado pendente/certo/errado.
+function BetLine({ label, sublabel, status, points, children }) {
+  const badgeClass =
+    status === 'correct'
+      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+      : status === 'wrong'
+      ? 'bg-slate-800 text-slate-500 border-slate-700'
+      : 'bg-slate-800 text-slate-300 border-slate-700';
+  return (
+    <div className="rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-stone-100 truncate">{label}</p>
+          {sublabel && <p className="text-xs text-slate-500 truncate">{sublabel}</p>}
+        </div>
+        <span className={`shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold ${badgeClass}`}>
+          {status === 'correct' && <Check size={12} />}
+          {status === 'wrong' && <X size={12} />}
+          {points}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveResult, otherPicks, knownPlayers, onAdminSavePick }) {
   const displayTeamA = (result && result.teamAName) || match.teamA;
   const displayTeamB = (result && result.teamBName) || match.teamB;
@@ -475,10 +502,22 @@ function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveRes
       </div>
 
       <div className="border-t border-dashed border-slate-600 px-4 py-3">
-        {pickEditable ? (
-          <>
-            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">O teu palpite</p>
-            <div className="flex gap-2 mb-2">
+        {!pickEditable && (
+          <p className={`text-xs mb-2 ${finished ? 'text-slate-500' : 'text-rose-400'}`}>
+            {finished
+              ? 'Jogo terminado.'
+              : `${isLive ? 'Jogo a decorrer' : 'O jogo já começou'} — palpites bloqueados.`}
+          </p>
+        )}
+
+        <BetLine
+          label="Resultado (V/E/D)"
+          sublabel="Vitória, empate ou derrota"
+          status={finished ? (pts.outcome > 0 ? 'correct' : 'wrong') : 'pending'}
+          points={finished ? `+${pts.outcome}` : '+3 pts'}
+        >
+          {pickEditable ? (
+            <div className="flex gap-2">
               {[
                 ['A', displayTeamA],
                 ['D', 'Empate'],
@@ -497,15 +536,34 @@ function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveRes
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-slate-400 w-16 truncate">Resultado</span>
+          ) : (
+            <p className="text-sm text-slate-300">
+              {pick && pick.outcome
+                ? pick.outcome === 'A'
+                  ? displayTeamA
+                  : pick.outcome === 'B'
+                  ? displayTeamB
+                  : 'Empate'
+                : 'não escolheste'}
+            </p>
+          )}
+        </BetLine>
+
+        <BetLine
+          label="Resultado exato"
+          sublabel="O placar final certinho"
+          status={finished ? (pts.exact > 0 ? 'correct' : 'wrong') : 'pending'}
+          points={finished ? `+${pts.exact}` : '+5 pts'}
+        >
+          {pickEditable ? (
+            <div className="flex items-center gap-2">
               <input
                 type="number"
                 min="0"
                 value={draftPick.scoreA}
                 onChange={(e) => updatePick({ scoreA: e.target.value })}
                 onBlur={() => commitPick({})}
-                className="w-12 text-center rounded-md bg-slate-900 border border-slate-700 text-stone-100 py-1"
+                className="w-12 text-center rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1"
               />
               <span className="text-slate-500">-</span>
               <input
@@ -514,11 +572,24 @@ function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveRes
                 value={draftPick.scoreB}
                 onChange={(e) => updatePick({ scoreB: e.target.value })}
                 onBlur={() => commitPick({})}
-                className="w-12 text-center rounded-md bg-slate-900 border border-slate-700 text-stone-100 py-1"
+                className="w-12 text-center rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1"
               />
             </div>
+          ) : (
+            <p className="text-sm text-slate-300">
+              {pick && pick.scoreA !== '' && pick.scoreB !== '' ? `${pick.scoreA} - ${pick.scoreB}` : 'não escolheste'}
+            </p>
+          )}
+        </BetLine>
+
+        <BetLine
+          label="Marcador"
+          sublabel="+1 ponto por cada golo dele"
+          status={finished ? (pts.scorer > 0 ? 'correct' : 'wrong') : 'pending'}
+          points={finished ? `+${pts.scorer}` : '+1/golo'}
+        >
+          {pickEditable ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 w-16 truncate">Marcador</span>
               {useOtherScorer ? (
                 <input
                   type="text"
@@ -527,7 +598,7 @@ function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveRes
                   value={draftPick.scorer}
                   onChange={(e) => updatePick({ scorer: e.target.value })}
                   onBlur={() => commitPick({})}
-                  className="flex-1 rounded-md bg-slate-900 border border-slate-700 text-stone-100 py-1 px-2 text-sm"
+                  className="flex-1 rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1 px-2 text-sm"
                 />
               ) : (
                 <select
@@ -540,7 +611,7 @@ function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveRes
                       commitPick({ scorer: e.target.value });
                     }
                   }}
-                  className="flex-1 rounded-md bg-slate-900 border border-slate-700 text-stone-100 py-1.5 px-2 text-sm"
+                  className="flex-1 rounded-md bg-slate-800 border border-slate-700 text-stone-100 py-1.5 px-2 text-sm"
                 >
                   <option value="">escolhe quem marca</option>
                   <optgroup label={displayTeamA}>
@@ -557,42 +628,18 @@ function MatchCard({ match, pick, result, isAdmin, myName, onSavePick, onSaveRes
                 </select>
               )}
               {useOtherScorer && (
-                <button
-                  onClick={() => setUseOtherScorer(false)}
-                  className="text-xs text-slate-400 underline shrink-0"
-                >
+                <button onClick={() => setUseOtherScorer(false)} className="text-xs text-slate-400 underline shrink-0">
                   lista
                 </button>
               )}
             </div>
-          </>
-        ) : (
-          <>
-            <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">
-              O teu palpite: {pick ? (
-                <span className="text-stone-200 font-semibold">
-                  {displayTeamA} {pick.scoreA !== '' ? pick.scoreA : '?'} - {pick.scoreB !== '' ? pick.scoreB : '?'} {displayTeamB}
-                  {pick.scorer ? ` · marcador: ${pick.scorer}` : ''}
-                </span>
-              ) : (
-                <span className="text-slate-500">não palpitaste</span>
-              )}
-            </p>
-            {result && result.scorers && result.scorers.length > 0 && (
-              <p className="text-xs text-slate-400 mb-2">Marcaram: {result.scorers.join(', ')}</p>
-            )}
-            {finished ? (
-              <div className="flex gap-2 flex-wrap">
-                <PointPill label="V/E/D" earned={pts.outcome > 0} value={3} />
-                <PointPill label="Resultado exato" earned={pts.exact > 0} value={5} />
-                <PointPill label="Marcador" earned={pts.scorer > 0} value={pts.scorer} />
-              </div>
-            ) : (
-              <p className="text-xs text-rose-400">
-                {isLive ? 'Jogo a decorrer' : 'O jogo já começou'} — palpites bloqueados até terminar.
-              </p>
-            )}
-          </>
+          ) : (
+            <p className="text-sm text-slate-300">{pick && pick.scorer ? pick.scorer : 'não escolheste'}</p>
+          )}
+        </BetLine>
+
+        {result && result.scorers && result.scorers.length > 0 && (
+          <p className="text-xs text-slate-400">Marcaram: {result.scorers.join(', ')}</p>
         )}
       </div>
 
